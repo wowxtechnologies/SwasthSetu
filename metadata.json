@@ -1,0 +1,6 @@
+{
+  "name": "SwasthSetu - Healthcare Access & Resource Intelligence",
+  "description": "Smart Patient Access & Healthcare Resource Intelligence Platform connecting patient self-registration, smart kiosks, doctor workflows, hospital operations, medicine inventory, AI forecasting, and cross-facility resource redistribution.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
