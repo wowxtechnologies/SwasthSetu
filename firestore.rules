@@ -1,0 +1,247 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Security Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Runtime bootstrap admin + database role lookup
+    function isBootstrapAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == "wowxtechnologies@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasUserDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function getUserRole() {
+      return hasUserDoc() ? getUserData().role : 'PATIENT';
+    }
+
+    function isSystemAdmin() {
+      return isBootstrapAdmin() || (hasUserDoc() && getUserData().role == 'SYSTEM_ADMIN');
+    }
+
+    function isStateAdmin() {
+      return isSystemAdmin() || (hasUserDoc() && getUserData().role == 'STATE_ADMIN');
+    }
+
+    function isDistrictAdmin() {
+      return isStateAdmin() || (hasUserDoc() && getUserData().role == 'DISTRICT_ADMIN');
+    }
+
+    function isHospitalAdmin() {
+      return isDistrictAdmin() || (hasUserDoc() && getUserData().role == 'HOSPITAL_ADMIN');
+    }
+
+    function isDoctor() {
+      return isSystemAdmin() || (hasUserDoc() && getUserData().role == 'DOCTOR');
+    }
+
+    function isNurse() {
+      return isSystemAdmin() || (hasUserDoc() && (getUserData().role == 'NURSE' || getUserData().role == 'DOCTOR'));
+    }
+
+    function isPharmacist() {
+      return isSystemAdmin() || (hasUserDoc() && getUserData().role == 'PHARMACIST');
+    }
+
+    function isHealthcareStaff() {
+      return isSystemAdmin() || (hasUserDoc() && getUserData().role in [
+        'DOCTOR', 'NURSE', 'PHARMACIST', 'HOSPITAL_ADMIN', 'DISTRICT_ADMIN', 'STATE_ADMIN', 'SYSTEM_ADMIN'
+      ]);
+    }
+
+    // Entity Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'facilityId', 'createdAt', 'updatedAt']) &&
+             data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 128 &&
+             data.role in ['PATIENT', 'DOCTOR', 'NURSE', 'PHARMACIST', 'HOSPITAL_ADMIN', 'DISTRICT_ADMIN', 'STATE_ADMIN', 'SYSTEM_ADMIN'] &&
+             data.facilityId is string && data.facilityId.size() <= 64;
+    }
+
+    function isValidPatient(data) {
+      return data.keys().hasAll(['patientId', 'fullName', 'phone', 'gender', 'createdAt']) &&
+             data.patientId is string && data.patientId.size() <= 64 &&
+             data.fullName is string && data.fullName.size() <= 128 &&
+             data.phone is string && data.phone.size() <= 20 &&
+             data.gender in ['MALE', 'FEMALE', 'OTHER'];
+    }
+
+    function isValidRegistration(data) {
+      return data.keys().hasAll(['registrationId', 'patientId', 'facilityId', 'departmentId', 'tokenNumber', 'status', 'createdAt']) &&
+             data.registrationId is string && data.registrationId.size() <= 64 &&
+             data.patientId is string && data.patientId.size() <= 64 &&
+             data.tokenNumber is string && data.tokenNumber.size() <= 32 &&
+             data.status in ['WAITING', 'IN_CONSULTATION', 'PHARMACY_PENDING', 'COMPLETED', 'CANCELLED'];
+    }
+
+    function isValidQueueTicket(data) {
+      return data.keys().hasAll(['ticketId', 'queueId', 'registrationId', 'tokenNumber', 'status', 'issuedAt']) &&
+             data.ticketId is string && data.ticketId.size() <= 64 &&
+             data.status in ['WAITING', 'CALLED', 'IN_CONSULTATION', 'COMPLETED', 'NO_SHOW'];
+    }
+
+    function isValidConsultation(data) {
+      return data.keys().hasAll(['consultationId', 'registrationId', 'patientId', 'doctorId', 'status', 'startedAt']) &&
+             data.consultationId is string && data.consultationId.size() <= 64 &&
+             data.status in ['IN_PROGRESS', 'COMPLETED'];
+    }
+
+    function isValidPharmacyOrder(data) {
+      return data.keys().hasAll(['orderId', 'consultationId', 'patientId', 'facilityId', 'dispenseStatus', 'createdAt']) &&
+             data.orderId is string && data.orderId.size() <= 64 &&
+             data.dispenseStatus in ['PENDING', 'PARTIALLY_DISPENSED', 'DISPENSED', 'CANCELLED'];
+    }
+
+    function isValidInventory(data) {
+      return data.keys().hasAll(['inventoryId', 'facilityId', 'medicineId', 'currentStock', 'riskLevel', 'updatedAt']) &&
+             data.inventoryId is string && data.inventoryId.size() <= 64 &&
+             data.currentStock is number &&
+             data.riskLevel in ['LOW', 'MEDIUM', 'CRITICAL', 'SURPLUS'];
+    }
+
+    // Collection Rules
+
+    // 1. Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isHealthcareStaff());
+      allow list: if isSystemAdmin() || isHospitalAdmin();
+      allow create: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && (
+        (request.auth.uid == userId && (incoming().role == 'PATIENT' || isBootstrapAdmin())) ||
+        isSystemAdmin()
+      );
+      allow update: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && (
+        isSystemAdmin() ||
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'preferredLanguage', 'updatedAt']))
+      );
+      allow delete: if isSystemAdmin();
+    }
+
+    // 2. Patients Collection (EHR / Demographic Records)
+    match /patients/{patientId} {
+      allow get: if isSignedIn() && (
+        isHealthcareStaff() ||
+        (resource.data.ownerUid == request.auth.uid)
+      );
+      allow list: if isHealthcareStaff();
+      allow create: if isSignedIn() && isValidId(patientId) && isValidPatient(incoming()) && (
+        isHealthcareStaff() ||
+        (incoming().ownerUid == request.auth.uid)
+      );
+      allow update: if isSignedIn() && isValidId(patientId) && isValidPatient(incoming()) && (
+        isHealthcareStaff() ||
+        (existing().ownerUid == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['phone', 'address', 'preferredLanguage']))
+      );
+      allow delete: if isSystemAdmin();
+    }
+
+    // 3. Registrations Collection
+    match /registrations/{registrationId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(registrationId) && isValidRegistration(incoming());
+      allow update: if isSignedIn() && isValidId(registrationId) && isValidRegistration(incoming()) && (
+        isHealthcareStaff() ||
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
+      allow delete: if isHospitalAdmin();
+    }
+
+    // 4. Queue Tickets
+    match /queueTickets/{ticketId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(ticketId) && isValidQueueTicket(incoming());
+      allow update: if isSignedIn() && isValidId(ticketId) && isValidQueueTicket(incoming()) && (
+        isHealthcareStaff()
+      );
+      allow delete: if isHospitalAdmin();
+    }
+
+    // 5. Queues
+    match /queues/{queueId} {
+      allow read: if isSignedIn();
+      allow write: if isHealthcareStaff();
+    }
+
+    // 6. Consultations Collection
+    match /consultations/{consultationId} {
+      allow get: if isSignedIn() && (
+        isHealthcareStaff() ||
+        resource.data.patientId == getUserData().patientId
+      );
+      allow list: if isHealthcareStaff();
+      allow create: if isDoctor() && isValidId(consultationId) && isValidConsultation(incoming());
+      allow update: if isDoctor() && isValidId(consultationId) && isValidConsultation(incoming()) && (
+        existing().status != 'COMPLETED' || isSystemAdmin()
+      );
+      allow delete: if isSystemAdmin();
+    }
+
+    // 7. Pharmacy Orders
+    match /pharmacyOrders/{orderId} {
+      allow get: if isSignedIn() && (
+        isHealthcareStaff() ||
+        resource.data.patientId == getUserData().patientId
+      );
+      allow list: if isHealthcareStaff();
+      allow create: if (isDoctor() || isHealthcareStaff()) && isValidId(orderId) && isValidPharmacyOrder(incoming());
+      allow update: if (isPharmacist() || isSystemAdmin()) && isValidId(orderId) && isValidPharmacyOrder(incoming());
+      allow delete: if isSystemAdmin();
+    }
+
+    // 8. Drug Inventory
+    match /inventory/{inventoryId} {
+      allow read: if isHealthcareStaff();
+      allow write: if isPharmacist() || isHospitalAdmin() || isDistrictAdmin() || isSystemAdmin();
+    }
+
+    // 9. Stock Alerts
+    match /alerts/{alertId} {
+      allow read: if isHealthcareStaff();
+      allow write: if isHealthcareStaff();
+    }
+
+    // 10. Inter-Facility Redistribution Recommendations
+    match /recommendations/{recId} {
+      allow read: if isHealthcareStaff();
+      allow create: if isHealthcareStaff();
+      allow update: if isDistrictAdmin() || isStateAdmin() || isSystemAdmin();
+      allow delete: if isSystemAdmin();
+    }
+
+    // 11. Immutable Audit Logs
+    match /auditLogs/{logId} {
+      allow read: if isSystemAdmin();
+      allow create: if isSignedIn() && isValidId(logId);
+      allow update, delete: if false; // strictly write-once
+    }
+  }
+}

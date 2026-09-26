@@ -1,0 +1,256 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Authenticated user profile and role-based access control definition",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "role": {
+          "type": "string",
+          "enum": [
+            "PATIENT",
+            "DOCTOR",
+            "NURSE",
+            "PHARMACIST",
+            "HOSPITAL_ADMIN",
+            "DISTRICT_ADMIN",
+            "STATE_ADMIN",
+            "SYSTEM_ADMIN"
+          ]
+        },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "facilityName": { "type": "string", "maxLength": 128 },
+        "departmentId": { "type": "string", "maxLength": 64 },
+        "departmentName": { "type": "string", "maxLength": 128 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "isEmailVerified": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["uid", "email", "role", "facilityId", "createdAt", "updatedAt"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Patient identity, contact, demographics, and clinical summary",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string", "maxLength": 64 },
+        "fullName": { "type": "string", "maxLength": 128 },
+        "dateOfBirth": { "type": "string", "maxLength": 24 },
+        "age": { "type": "number" },
+        "gender": { "type": "string", "enum": ["MALE", "FEMALE", "OTHER"] },
+        "phone": { "type": "string", "maxLength": 20 },
+        "preferredLanguage": { "type": "string", "maxLength": 10 },
+        "bloodGroup": { "type": "string", "maxLength": 10 },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["patientId", "fullName", "phone", "gender", "createdAt"]
+    },
+    "Registration": {
+      "title": "Registration",
+      "description": "Patient hospital encounter registration and token allocation",
+      "type": "object",
+      "properties": {
+        "registrationId": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 128 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "departmentId": { "type": "string", "maxLength": 64 },
+        "tokenNumber": { "type": "string", "maxLength": 32 },
+        "visitReason": { "type": "string", "maxLength": 256 },
+        "status": {
+          "type": "string",
+          "enum": ["WAITING", "IN_CONSULTATION", "PHARMACY_PENDING", "COMPLETED", "CANCELLED"]
+        },
+        "priorityStatus": { "type": "string", "enum": ["ROUTINE", "URGENT", "EMERGENCY"] },
+        "ticketId": { "type": "string", "maxLength": 64 },
+        "registeredByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["registrationId", "patientId", "facilityId", "departmentId", "tokenNumber", "status", "createdAt"]
+    },
+    "QueueTicket": {
+      "title": "QueueTicket",
+      "description": "Live queue ticket tracking token sequence and service state",
+      "type": "object",
+      "properties": {
+        "ticketId": { "type": "string", "maxLength": 64 },
+        "queueId": { "type": "string", "maxLength": 128 },
+        "registrationId": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 128 },
+        "tokenNumber": { "type": "string", "maxLength": 32 },
+        "sequenceNumber": { "type": "number" },
+        "departmentId": { "type": "string", "maxLength": 64 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "priority": { "type": "string", "enum": ["ROUTINE", "URGENT", "EMERGENCY"] },
+        "status": { "type": "string", "enum": ["WAITING", "CALLED", "IN_CONSULTATION", "COMPLETED", "NO_SHOW"] },
+        "issuedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["ticketId", "queueId", "registrationId", "tokenNumber", "status", "issuedAt"]
+    },
+    "Consultation": {
+      "title": "Consultation",
+      "description": "Doctor medical consultation notes, vitals, diagnosis and prescription reference",
+      "type": "object",
+      "properties": {
+        "consultationId": { "type": "string", "maxLength": 64 },
+        "registrationId": { "type": "string", "maxLength": 64 },
+        "ticketId": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 128 },
+        "doctorId": { "type": "string", "maxLength": 64 },
+        "doctorUid": { "type": "string", "maxLength": 128 },
+        "doctorName": { "type": "string", "maxLength": 128 },
+        "departmentId": { "type": "string", "maxLength": 64 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "chiefComplaint": { "type": "string", "maxLength": 512 },
+        "diagnosis": { "type": "string", "maxLength": 512 },
+        "clinicalNotes": { "type": "string", "maxLength": 1024 },
+        "status": { "type": "string", "enum": ["IN_PROGRESS", "COMPLETED"] },
+        "startedAt": { "type": "string", "maxLength": 64 },
+        "completedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["consultationId", "registrationId", "patientId", "doctorId", "status", "startedAt"]
+    },
+    "PharmacyOrder": {
+      "title": "PharmacyOrder",
+      "description": "Prescription fulfillment and drug dispensing tracking",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "maxLength": 64 },
+        "consultationId": { "type": "string", "maxLength": 64 },
+        "registrationId": { "type": "string", "maxLength": 64 },
+        "patientId": { "type": "string", "maxLength": 64 },
+        "patientName": { "type": "string", "maxLength": 128 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "doctorName": { "type": "string", "maxLength": 128 },
+        "dispenseStatus": {
+          "type": "string",
+          "enum": ["PENDING", "PARTIALLY_DISPENSED", "DISPENSED", "CANCELLED"]
+        },
+        "dispensedByUid": { "type": "string", "maxLength": 128 },
+        "dispensedAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["orderId", "consultationId", "patientId", "facilityId", "dispenseStatus", "createdAt"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "Drug inventory stock, consumption telemetry, and stock-out risk level",
+      "type": "object",
+      "properties": {
+        "inventoryId": { "type": "string", "maxLength": 64 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "facilityName": { "type": "string", "maxLength": 128 },
+        "medicineId": { "type": "string", "maxLength": 64 },
+        "medicineName": { "type": "string", "maxLength": 128 },
+        "currentStock": { "type": "number" },
+        "minimumStock": { "type": "number" },
+        "maximumStock": { "type": "number" },
+        "daysOfStock": { "type": "number" },
+        "riskLevel": { "type": "string", "enum": ["LOW", "MEDIUM", "CRITICAL", "SURPLUS"] },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["inventoryId", "facilityId", "medicineId", "currentStock", "riskLevel", "updatedAt"]
+    },
+    "StockAlert": {
+      "title": "StockAlert",
+      "description": "Critical stock-out risk alerts and administrative acknowledgments",
+      "type": "object",
+      "properties": {
+        "alertId": { "type": "string", "maxLength": 64 },
+        "facilityId": { "type": "string", "maxLength": 64 },
+        "severity": { "type": "string", "enum": ["INFO", "WARNING", "CRITICAL"] },
+        "category": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 128 },
+        "message": { "type": "string", "maxLength": 512 },
+        "isAcknowledged": { "type": "boolean" },
+        "acknowledgedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["alertId", "facilityId", "severity", "title", "isAcknowledged", "createdAt"]
+    },
+    "ResourceRecommendation": {
+      "title": "ResourceRecommendation",
+      "description": "Inter-facility medicine and resource redistribution recommendations",
+      "type": "object",
+      "properties": {
+        "recommendationId": { "type": "string", "maxLength": 64 },
+        "sourceFacilityId": { "type": "string", "maxLength": 64 },
+        "destFacilityId": { "type": "string", "maxLength": 64 },
+        "medicineId": { "type": "string", "maxLength": 64 },
+        "suggestedQuantity": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING_REVIEW", "APPROVED", "REJECTED"] },
+        "reviewedBy": { "type": "string", "maxLength": 128 },
+        "reviewedAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["recommendationId", "sourceFacilityId", "destFacilityId", "suggestedQuantity", "status", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable security and clinical access audit log",
+      "type": "object",
+      "properties": {
+        "logId": { "type": "string", "maxLength": 64 },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "actorRole": { "type": "string", "maxLength": 64 },
+        "action": { "type": "string", "maxLength": 64 },
+        "resourceType": { "type": "string", "maxLength": 64 },
+        "resourceId": { "type": "string", "maxLength": 64 },
+        "details": { "type": "string", "maxLength": 512 },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["logId", "actorUid", "action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile with role, facility mapping, and permissions"
+    },
+    "/patients/{patientId}": {
+      "schema": "Patient",
+      "description": "Electronic health record and demographics"
+    },
+    "/registrations/{registrationId}": {
+      "schema": "Registration",
+      "description": "Hospital visit registration encounters"
+    },
+    "/queueTickets/{ticketId}": {
+      "schema": "QueueTicket",
+      "description": "Real-time queue tickets"
+    },
+    "/consultations/{consultationId}": {
+      "schema": "Consultation",
+      "description": "Doctor clinical encounters"
+    },
+    "/pharmacyOrders/{orderId}": {
+      "schema": "PharmacyOrder",
+      "description": "Pharmacy dispensary orders"
+    },
+    "/inventory/{inventoryId}": {
+      "schema": "InventoryItem",
+      "description": "Facility medicine inventory stock"
+    },
+    "/alerts/{alertId}": {
+      "schema": "StockAlert",
+      "description": "Facility stock-out alerts"
+    },
+    "/recommendations/{recommendationId}": {
+      "schema": "ResourceRecommendation",
+      "description": "Inter-facility redistribution recommendations"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Security audit logs"
+    }
+  }
+}

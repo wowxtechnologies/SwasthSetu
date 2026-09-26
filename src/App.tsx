@@ -4,7 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import { AppProvider, useApp } from './context/AppContext';
+import { AppProvider } from './context/AppContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/layout/Header';
 import { DoctorWorkstation } from './components/doctor/DoctorWorkstation';
 import { PatientPortal } from './components/patient/PatientPortal';
@@ -16,6 +17,8 @@ import { HospitalOpsDashboard } from './components/analytics/HospitalOpsDashboar
 import { ResourceNetworkMap } from './components/network/ResourceNetworkMap';
 import { GeminiAssistantModal } from './components/assistant/GeminiAssistantModal';
 import { DemoGuideModal } from './components/demo/DemoGuideModal';
+import { AuthModal } from './components/auth/AuthModal';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import {
   HeartPulse,
   ShieldCheck,
@@ -29,6 +32,7 @@ const MainContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState('doctor');
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
+  const { authModalOpen, setAuthModalOpen } = useAuth();
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 selection:bg-blue-600 selection:text-white">
@@ -38,18 +42,74 @@ const MainContent: React.FC = () => {
         setActiveTab={setActiveTab}
         onOpenAssistant={() => setAssistantOpen(true)}
         onOpenDemo={() => setDemoOpen(true)}
+        onOpenAuthModal={() => setAuthModalOpen(true)}
       />
 
-      {/* Main Workspace Body */}
+      {/* Main Workspace Body with RBAC Protected Routes */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6">
-        {activeTab === 'doctor' && <DoctorWorkstation />}
+        {activeTab === 'doctor' && (
+          <ProtectedRoute
+            allowedRoles={['DOCTOR', 'NURSE', 'SYSTEM_ADMIN']}
+            requiredPermission="queue:call_patient"
+            moduleName="Doctor Clinical Workstation & Consultation Pad"
+            fallbackTab="patient"
+            onNavigateTab={setActiveTab}
+          >
+            <DoctorWorkstation />
+          </ProtectedRoute>
+        )}
+
         {activeTab === 'patient' && <PatientPortal />}
+
         {activeTab === 'kiosk' && <SmartKiosk />}
+
         {activeTab === 'queue-board' && <OPDQueueBoard />}
-        {activeTab === 'pharmacy' && <PharmacyDispensary />}
-        {activeTab === 'inventory' && <InventoryDashboard />}
-        {activeTab === 'hospital-ops' && <HospitalOpsDashboard />}
-        {activeTab === 'network' && <ResourceNetworkMap />}
+
+        {activeTab === 'pharmacy' && (
+          <ProtectedRoute
+            allowedRoles={['PHARMACIST', 'HOSPITAL_ADMIN', 'SYSTEM_ADMIN']}
+            requiredPermission="pharmacy:dispense"
+            moduleName="Central Hospital Pharmacy & Drug Dispensary"
+            fallbackTab="patient"
+            onNavigateTab={setActiveTab}
+          >
+            <PharmacyDispensary />
+          </ProtectedRoute>
+        )}
+
+        {activeTab === 'inventory' && (
+          <ProtectedRoute
+            allowedRoles={['PHARMACIST', 'HOSPITAL_ADMIN', 'DISTRICT_ADMIN', 'STATE_ADMIN', 'SYSTEM_ADMIN', 'DOCTOR']}
+            moduleName="Medicine Catalog & Stock-Out Alert Radar"
+            fallbackTab="patient"
+            onNavigateTab={setActiveTab}
+          >
+            <InventoryDashboard />
+          </ProtectedRoute>
+        )}
+
+        {activeTab === 'hospital-ops' && (
+          <ProtectedRoute
+            allowedRoles={['HOSPITAL_ADMIN', 'DISTRICT_ADMIN', 'STATE_ADMIN', 'SYSTEM_ADMIN']}
+            moduleName="Hospital Operations & AI Telemetry Dashboard"
+            fallbackTab="patient"
+            onNavigateTab={setActiveTab}
+          >
+            <HospitalOpsDashboard />
+          </ProtectedRoute>
+        )}
+
+        {activeTab === 'network' && (
+          <ProtectedRoute
+            allowedRoles={['DISTRICT_ADMIN', 'STATE_ADMIN', 'HOSPITAL_ADMIN', 'SYSTEM_ADMIN']}
+            requiredPermission="district:view_all_facilities"
+            moduleName="District Healthcare Grid & Inter-Facility AI Redistribution"
+            fallbackTab="patient"
+            onNavigateTab={setActiveTab}
+          >
+            <ResourceNetworkMap />
+          </ProtectedRoute>
+        )}
       </main>
 
       {/* Compliance & Emergency Footer */}
@@ -86,7 +146,7 @@ const MainContent: React.FC = () => {
           </div>
 
           <div className="text-[11px] text-slate-400 font-mono text-center md:text-right">
-            Ayushman Digital Architecture · Firestore & Vertex AI Powered
+            Ayushman Digital Architecture · Firebase Auth & ABAC Protected
           </div>
         </div>
       </footer>
@@ -112,6 +172,11 @@ const MainContent: React.FC = () => {
         onClose={() => setDemoOpen(false)}
         onNavigateTab={(tab) => setActiveTab(tab)}
       />
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onSelectTab={(tab) => setActiveTab(tab)}
+      />
     </div>
   );
 };
@@ -119,7 +184,9 @@ const MainContent: React.FC = () => {
 export default function App() {
   return (
     <AppProvider>
-      <MainContent />
+      <AuthProvider>
+        <MainContent />
+      </AuthProvider>
     </AppProvider>
   );
 }
